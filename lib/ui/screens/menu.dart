@@ -167,8 +167,9 @@ class _MenuPageState extends ConsumerState<MenuPage> {
             child: FutureBuilder(
               future: repo.menuItems(),
               builder: (context, snap) {
-                if (!snap.hasData)
+                if (!snap.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 final list = snap.data!
                     .where((i) => i['is_active'] == 1)
                     .where((i) => _cat == null || i['category_id'] == _cat)
@@ -180,8 +181,9 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                           ),
                     )
                     .toList();
-                if (list.isEmpty)
+                if (list.isEmpty) {
                   return EmptyState(title: tr('empty'), hint: '');
+                }
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: list.length,

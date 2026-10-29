@@ -92,7 +92,8 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
-                  value: _customerId,
+                  key: ValueKey(_customerId),
+                  initialValue: _customerId,
                   decoration: const InputDecoration(),
                   items: [
                     DropdownMenuItem<String?>(
@@ -324,7 +325,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                                 taxInclusive: taxInclusive,
                               );
                               ref.read(refreshProvider.notifier).state++;
-                              if (!mounted) return;
+                              if (!context.mounted) return;
                               Navigator.of(context).pushReplacement(
                                 MaterialPageRoute(
                                   builder: (_) => OrderDetailPage(
@@ -334,7 +335,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                                 ),
                               );
                             } catch (e) {
-                              if (mounted) {
+                              if (context.mounted) {
                                 ScaffoldMessenger.of(
                                   context,
                                 ).showSnackBar(SnackBar(content: Text('$e')));

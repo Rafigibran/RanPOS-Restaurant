@@ -37,6 +37,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       setState(() => _status = 'No local backup file found.');
       return;
     }
+    if (!mounted) {
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -112,10 +115,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     'phone': biz?['phone'] ?? '',
                   });
                   ref.read(refreshProvider.notifier).state++;
-                  if (mounted)
+                  if (context.mounted) {
                     ScaffoldMessenger.of(
                       context,
                     ).showSnackBar(SnackBar(content: Text(tr('save'))));
+                  }
                 },
                 child: Text(tr('save')),
               ),
@@ -127,7 +131,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: langChoice,
+              key: ValueKey(langChoice),
+              initialValue: langChoice,
               items: [
                 DropdownMenuItem(
                   value: 'system',

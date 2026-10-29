@@ -72,7 +72,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _currency,
+                key: ValueKey(_currency),
+                initialValue: _currency,
                 decoration: const InputDecoration(),
                 items: const [
                   DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
@@ -135,7 +136,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.setBool('ranpos_setup_done', true);
                           ref.read(refreshProvider.notifier).state++;
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
                               builder: (_) => const ShellPage(),

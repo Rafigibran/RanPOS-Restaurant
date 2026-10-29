@@ -26,16 +26,23 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final symbol = biz?['currency_symbol'] as String? ?? '\$';
     final now = DateTime.now();
     DateTime? from;
-    if (_period == 'today') from = DateTime(now.year, now.month, now.day);
-    if (_period == 'week') from = now.subtract(const Duration(days: 7));
-    if (_period == 'month') from = DateTime(now.year, now.month, 1);
+    if (_period == 'today') {
+      from = DateTime(now.year, now.month, now.day);
+    }
+    if (_period == 'week') {
+      from = now.subtract(const Duration(days: 7));
+    }
+    if (_period == 'month') {
+      from = DateTime(now.year, now.month, 1);
+    }
     return Scaffold(
       appBar: AppBar(title: Text(tr('reports'))),
       body: FutureBuilder(
         future: repo.report(from: from),
         builder: (context, snap) {
-          if (!snap.hasData)
+          if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           final r = snap.data!;
           final revenue = r['revenue'] as int;
           final count = r['orders'] as int;

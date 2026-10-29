@@ -40,7 +40,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: method,
+              initialValue: method,
               items: [
                 DropdownMenuItem(value: 'cash', child: Text(tr('cash'))),
                 DropdownMenuItem(value: 'card', child: Text(tr('card'))),
@@ -74,29 +74,25 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final minor = isZeroDecimal(code) ? parsed.round() : (parsed * 100).round();
     try {
       await ref.read(repoProvider).recordPayment(widget.orderId, method, minor);
-      if (mounted) {
-        final change = calcChange(
-          paid: minor,
-          total: order['total_minor'] as int,
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              change > 0
-                  ? '${tr('change')}: ${formatMoney(change, code, symbol)}'
-                  : tr('paid'),
-            ),
+      if (!mounted) return;
+      final change = calcChange(
+        paid: minor,
+        total: order['total_minor'] as int,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            change > 0
+                ? '${tr('change')}: ${formatMoney(change, code, symbol)}'
+                : tr('paid'),
           ),
-        );
-        ref.read(refreshProvider.notifier).state++;
-        setState(() {});
-      }
+        ),
+      );
+      ref.read(refreshProvider.notifier).state++;
+      setState(() {});
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -331,7 +327,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                             ref.read(refreshProvider.notifier).state++;
                             setState(() {});
                           } catch (e) {
-                            if (mounted) {
+                            if (context.mounted) {
                               ScaffoldMessenger.of(
                                 context,
                               ).showSnackBar(SnackBar(content: Text('$e')));

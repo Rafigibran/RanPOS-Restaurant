@@ -29,10 +29,13 @@ class NotificationsPage extends ConsumerWidget {
       body: FutureBuilder(
         future: repo.notifications(),
         builder: (context, snap) {
-          if (!snap.hasData)
+          if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           final list = snap.data!;
-          if (list.isEmpty) return EmptyState(title: tr('empty'), hint: '');
+          if (list.isEmpty) {
+            return EmptyState(title: tr('empty'), hint: '');
+          }
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: list.length,

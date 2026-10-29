@@ -16,12 +16,16 @@ class StockPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(tr('stock'))),
       body: FutureBuilder(
-        future: Future.wait([repo.menuItems(), repo.stockMovements()]),
+        future: Future.wait<List<Map<String, dynamic>>>([
+          repo.menuItems(),
+          repo.stockMovements(),
+        ]),
         builder: (context, snap) {
-          if (!snap.hasData)
+          if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
-          final items = snap.data![0] as List<Map<String, dynamic>>;
-          final moves = snap.data![1] as List<Map<String, dynamic>>;
+          }
+          final items = snap.data![0];
+          final moves = snap.data![1];
           final itemById = {for (final i in items) i['id']: i['name']};
           return ListView(
             padding: const EdgeInsets.all(16),

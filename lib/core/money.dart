@@ -1,6 +1,6 @@
-/// Money is always stored as an integer in the smallest unit.
-/// USD/EUR: cents. IDR/JPY: whole rupiah/yen (zero-decimal currencies).
-/// No floating point is used for totals, so rounding is explicit.
+// Money is always stored as an integer in the smallest unit.
+// USD/EUR: cents. IDR/JPY: whole rupiah/yen (zero-decimal currencies).
+// No floating point is used for totals, so rounding is explicit.
 
 bool isZeroDecimal(String code) =>
     const {'IDR', 'JPY', 'KRW', 'VND'}.contains(code.toUpperCase());

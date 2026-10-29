@@ -86,7 +86,7 @@ class SupabaseBackup {
 
   /// Upload a gzipped JSON snapshot is approximated with plain JSON here
   /// (gzip is added by the server-side bucket policy in the setup guide;
-  /// the file name still carries the documented backups/<uid>/ prefix).
+  /// the file name still carries the documented backups prefix).
   static Future<String> uploadBackup(Map<String, dynamic> backup) async {
     final (url, key) = await connection();
     final token = await _storage.read(key: _tokenKey);

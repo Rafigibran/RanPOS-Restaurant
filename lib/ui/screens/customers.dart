@@ -103,8 +103,9 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
             child: FutureBuilder(
               future: repo.customers(),
               builder: (context, snap) {
-                if (!snap.hasData)
+                if (!snap.hasData) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 final list = snap.data!
                     .where(
                       (c) =>
@@ -114,8 +115,9 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
                           ),
                     )
                     .toList();
-                if (list.isEmpty)
+                if (list.isEmpty) {
                   return EmptyState(title: tr('empty'), hint: '');
+                }
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: list.length,
