@@ -24,7 +24,9 @@ class StockPage extends ConsumerWidget {
           if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final items = snap.data![0];
+          final items = snap.data![0]
+              .where((i) => i['stock_tracking'] == 1)
+              .toList();
           final moves = snap.data![1];
           final itemById = {for (final i in items) i['id']: i['name']};
           return ListView(

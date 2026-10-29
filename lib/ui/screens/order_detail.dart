@@ -6,6 +6,7 @@ import '../../state/app_state.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'menu_picker.dart';
+import 'receipt.dart';
 
 class OrderDetailPage extends ConsumerStatefulWidget {
   final String lang;
@@ -104,7 +105,34 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final code = biz?['currency_code'] as String? ?? 'USD';
     final symbol = biz?['currency_symbol'] as String? ?? '\$';
     return Scaffold(
-      appBar: AppBar(title: Text(tr('detailOrder'))),
+      appBar: AppBar(
+        title: Text(tr('detailOrder')),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: tr('receipt'),
+            onPressed: () async {
+              final r = ref.read(repoProvider);
+              final b = ref.read(businessProvider).value;
+              final o = await r.orderById(widget.orderId);
+              if (o == null || !context.mounted) return;
+              final it = await r.orderItems(widget.orderId);
+              final pay = await r.paymentsFor(widget.orderId);
+              if (!context.mounted) return;
+              await showReceiptDialog(
+                context,
+                lang: widget.lang,
+                order: o,
+                items: it,
+                payments: pay,
+                biz: b,
+                code: code,
+                symbol: symbol,
+              );
+            },
+          ),
+        ],
+      ),
       body: FutureBuilder(
         future: Future.wait([
           repo.orderById(widget.orderId),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/l10n.dart';
+import '../../core/money.dart';
 import '../../data/db.dart';
 import '../../state/app_state.dart';
 import '../theme.dart';
@@ -18,44 +19,25 @@ class _MenuPageState extends ConsumerState<MenuPage> {
   String? _cat;
   String tr(String k) => L.t(widget.lang, k);
 
-  Future<void> _edit([Map<String, dynamic>? existing]) async {
-    final name = TextEditingController(
-      text: existing?['name'] as String? ?? '',
-    );
-    final price = TextEditingController(
-      text: existing == null
-          ? ''
-          : ((existing['price_minor'] as int) / 100).toString(),
-    );
-    final stock = TextEditingController(
-      text: existing == null
-          ? '10'
-          : (existing['stock_quantity'] as int).toString(),
-    );
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  String _minorToDisplay(int minor, bool zero) => zero
+      ? minor.toString()
+      : (minor / 100).toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+
+  Future<void> _addCategory() async {
+    final nameCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? tr('add') : tr('edit')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: name,
-              decoration: InputDecoration(labelText: tr('menu')),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: price,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Price'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: stock,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: tr('stock')),
-            ),
-          ],
+        title: Text(tr('addCategory')),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: InputDecoration(labelText: tr('categoryName')),
+          autofocus: true,
         ),
         actions: [
           TextButton(
@@ -69,21 +51,150 @@ class _MenuPageState extends ConsumerState<MenuPage> {
         ],
       ),
     );
-    if (ok != true || name.text.trim().isEmpty) return;
-    final biz = await ref.read(repoProvider).business();
+    if (ok != true || nameCtrl.text.trim().isEmpty) return;
+    final repo = ref.read(repoProvider);
+    final cats = await repo.categories();
+    await repo.upsertCategory({
+      'id': newId(),
+      'name': nameCtrl.text.trim(),
+      'sort_order': cats.length,
+      'is_active': 1,
+    });
+    ref.read(refreshProvider.notifier).state++;
+    setState(() {});
+  }
+
+  Future<void> _deleteCategory(Map<String, dynamic> cat) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(cat['name'] as String),
+        content: Text(tr('deleteCategoryConfirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('delete')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(repoProvider).deleteCategory(cat['id'] as String);
+      if (_cat == cat['id']) _cat = null;
+      ref.read(refreshProvider.notifier).state++;
+      setState(() {});
+    } catch (_) {
+      _snack(tr('categoryInUse'));
+    }
+  }
+
+  Future<void> _edit([Map<String, dynamic>? existing]) async {
+    final repo = ref.read(repoProvider);
+    final biz = await repo.business();
     final code = biz?['currency_code'] as String? ?? 'USD';
-    final parsed = double.tryParse(price.text.replaceAll(',', '.')) ?? 0;
-    final minor = code == 'IDR' ? parsed.round() : (parsed * 100).round();
-    await ref.read(repoProvider).upsertMenuItem({
+    final zero = isZeroDecimal(code);
+    final nameCtrl = TextEditingController(
+      text: existing?['name'] as String? ?? '',
+    );
+    final priceCtrl = TextEditingController(
+      text: existing == null
+          ? ''
+          : _minorToDisplay(existing['price_minor'] as int, zero),
+    );
+    final stockCtrl = TextEditingController(
+      text: existing == null
+          ? '10'
+          : (existing['stock_quantity'] as int).toString(),
+    );
+    var categoryId = existing?['category_id'] as String?;
+    var trackStock = (existing?['stock_tracking'] as int? ?? 1) == 1;
+    final cats = await repo.categories();
+    if (!mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: Text(existing == null ? tr('add') : tr('edit')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: InputDecoration(labelText: tr('itemName')),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: priceCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: '${tr('price')} ($code)',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: categoryId,
+                  decoration: InputDecoration(labelText: tr('category')),
+                  items: [
+                    DropdownMenuItem<String?>(value: null, child: Text('-')),
+                    for (final c in cats)
+                      DropdownMenuItem<String?>(
+                        value: c['id'] as String,
+                        child: Text(c['name'] as String),
+                      ),
+                  ],
+                  onChanged: (v) => setDlg(() => categoryId = v),
+                ),
+                SwitchListTile(
+                  value: trackStock,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(tr('trackStock')),
+                  onChanged: (v) => setDlg(() => trackStock = v),
+                ),
+                if (trackStock)
+                  TextField(
+                    controller: stockCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: tr('stock')),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('save')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || nameCtrl.text.trim().isEmpty) return;
+    final parsed = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? 0;
+    final minor = zero ? parsed.round() : (parsed * 100).round();
+    await repo.upsertMenuItem({
       'id': existing?['id'] ?? newId(),
-      'category_id': existing?['category_id'],
-      'name': name.text.trim(),
+      'category_id': categoryId,
+      'name': nameCtrl.text.trim(),
       'description': existing?['description'] ?? '',
       'price_minor': minor,
       'sku': existing?['sku'],
       'is_active': 1,
-      'stock_tracking': 1,
-      'stock_quantity': int.tryParse(stock.text) ?? 10,
+      'stock_tracking': trackStock ? 1 : 0,
+      'stock_quantity': trackStock ? (int.tryParse(stockCtrl.text) ?? 0) : 0,
       'low_stock_threshold': existing?['low_stock_threshold'] ?? 5,
       'created_at': existing?['created_at'] ?? nowIso(),
       'updated_at': nowIso(),
@@ -144,19 +255,30 @@ class _MenuPageState extends ConsumerState<MenuPage> {
                     for (final c in cats)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(c['name'] as String),
-                          selected: _cat == c['id'],
-                          selectedColor: RanTheme.accent,
-                          labelStyle: TextStyle(
-                            color: _cat == c['id']
-                                ? Colors.white
-                                : RanTheme.ink,
+                        child: GestureDetector(
+                          onLongPress: () => _deleteCategory(c),
+                          child: ChoiceChip(
+                            label: Text(c['name'] as String),
+                            selected: _cat == c['id'],
+                            selectedColor: RanTheme.accent,
+                            labelStyle: TextStyle(
+                              color: _cat == c['id']
+                                  ? Colors.white
+                                  : RanTheme.ink,
+                            ),
+                            onSelected: (_) =>
+                                setState(() => _cat = c['id'] as String),
                           ),
-                          onSelected: (_) =>
-                              setState(() => _cat = c['id'] as String),
                         ),
                       ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        avatar: const Icon(Icons.add, size: 16),
+                        label: Text(tr('addCategory')),
+                        onPressed: _addCategory,
+                      ),
+                    ),
                   ],
                 ),
               );

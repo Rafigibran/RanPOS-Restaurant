@@ -19,17 +19,23 @@ from the reference is copied.
   waiting-payment count, popular dishes, out-of-stock and low-stock,
   recent transactions.
 - Orders: search and filters (all, in progress, ready, waiting payment,
-  completed, cancelled), order detail, status transitions, payment
-  recording (cash / card-transfer as manual recording), change for cash.
+  completed, cancelled), order detail, strict status transitions, payment
+  recording (cash / card-transfer as manual recording), change for cash,
+  and a paper-style receipt preview.
 - Create order: dine-in / takeaway, customer or walk-in, guests,
   available-table guard (one active order per table), menu with
   quantity steppers, subtotal / tax / total, atomic save.
 - Tables: floors and tables are added, edited and deleted by the user
   from the Tables tab, with an available / occupied legend.
-- Menu and categories, customers, simple stock with movement history
-  and return-to-stock on cancellation.
+- Menu and categories (add/delete, assign per item), customers, simple
+  stock with movement history and return-to-stock on cancellation.
+  Stock tracking can be switched off per item.
 - In-app notifications for order created, order ready and payment.
 - Reports: today / week / month / all, revenue, order count, average,
+  top items by real sales, payment methods, full-transaction CSV export.
+- Dashboard: revenue from paid payments only, in-progress count,
+  waiting-payment count, real best sellers, out-of-stock and low-stock,
+  recent transactions with order + payment status chips.
   top items, payment methods, CSV export to the app documents folder.
 - 6 languages: Indonesian, English, Japanese, Simplified Chinese,
   Spanish, Arabic (RTL). Device locale on first launch, English

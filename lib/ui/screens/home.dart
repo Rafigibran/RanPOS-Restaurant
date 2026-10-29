@@ -79,7 +79,12 @@ class HomePage extends ConsumerWidget {
         final symbol = biz?['currency_symbol'] as String? ?? '\$';
         final name = biz?['name'] as String? ?? 'RanPOS';
         return FutureBuilder(
-          future: Future.wait([repo.orders(), repo.menuItems(), repo.report()]),
+          future: Future.wait([
+            repo.orders(),
+            repo.menuItems(),
+            repo.report(),
+            repo.popularItems(),
+          ]),
           builder: (context, snap) {
             if (!snap.hasData) {
               return const Center(child: CircularProgressIndicator());
@@ -87,6 +92,7 @@ class HomePage extends ConsumerWidget {
             final orders = snap.data![0] as List<Map<String, dynamic>>;
             final items = snap.data![1] as List<Map<String, dynamic>>;
             final report = snap.data![2] as Map<String, dynamic>;
+            final popularRows = snap.data![3] as List<Map<String, dynamic>>;
             final inProgress = orders
                 .where((o) => o['order_status'] == 'in_progress')
                 .length;
@@ -114,10 +120,20 @@ class HomePage extends ConsumerWidget {
                           (i['low_stock_threshold'] as int),
                 )
                 .toList();
-            final popular = items
-                .where((i) => i['is_active'] == 1)
-                .take(5)
-                .toList();
+            // Best sellers computed from real sales (non-cancelled orders),
+            // by quantity sold. Falls back to the order-time average price
+            // when the menu item was deleted since.
+            final itemById = {for (final i in items) i['id'] as String: i};
+            final popular = popularRows.map((r) {
+              final menu = itemById[r['menu_item_id'] as String? ?? ''];
+              final qty = (r['qty'] as int?) ?? 0;
+              return {
+                'name': r['name'] as String,
+                'price_minor':
+                    menu?['price_minor'] as int? ??
+                    (qty > 0 ? (r['value'] as int) ~/ qty : 0),
+              };
+            }).toList();
             final revenue = report['revenue'] as int? ?? 0;
             final cardW = (MediaQuery.of(context).size.width * 0.38).clamp(
               132.0,

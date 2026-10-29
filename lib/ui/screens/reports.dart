@@ -26,8 +26,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final symbol = biz?['currency_symbol'] as String? ?? '\$';
     final now = DateTime.now();
     DateTime? from;
+    DateTime? to;
     if (_period == 'today') {
       from = DateTime(now.year, now.month, now.day);
+      to = from.add(const Duration(days: 1));
     }
     if (_period == 'week') {
       from = now.subtract(const Duration(days: 7));
@@ -149,14 +151,32 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () async {
+                      final rows = await ref
+                          .read(repoProvider)
+                          .transactionRows(from: from, to: to);
                       final csv = StringBuffer(
-                        'order_id,method,amount_minor\n',
+                        'order_number,created_at,order_type,order_status,payment_status,total_minor,method,amount_minor,payment_row_status,paid_at\n',
                       );
-                      // Report export is intentionally limited to the
-                      // aggregated method totals in MVP; full transaction
-                      // export reuses the same file location.
-                      for (final m in byMethod) {
-                        csv.writeln('${m['method']},${m['total']}');
+                      String cell(Object? v) {
+                        final s = (v ?? '').toString().replaceAll('"', '""');
+                        return '"$s"';
+                      }
+
+                      for (final r in rows) {
+                        csv.writeln(
+                          [
+                            cell(r['display_number']),
+                            cell(r['created_at']),
+                            cell(r['order_type']),
+                            cell(r['order_status']),
+                            cell(r['payment_status']),
+                            cell(r['total_minor']),
+                            cell(r['method']),
+                            cell(r['amount_minor']),
+                            cell(r['pay_status']),
+                            cell(r['paid_at']),
+                          ].join(','),
+                        );
                       }
                       final dir = await getApplicationDocumentsDirectory();
                       final file = File('${dir.path}/ranpos-report.csv');

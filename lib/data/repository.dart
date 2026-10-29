@@ -149,6 +149,29 @@ class Repository {
     );
   }
 
+  Future<void> upsertCategory(Map<String, dynamic> c) async {
+    final db = await _db;
+    await db.insert(
+      'menu_categories',
+      c,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteCategory(String id) async {
+    final db = await _db;
+    final count =
+        Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM menu_items WHERE category_id = ?',
+            [id],
+          ),
+        ) ??
+        0;
+    if (count > 0) throw Exception('Category is still used by menu items');
+    await db.delete('menu_categories', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> upsertCustomer(Map<String, dynamic> c) async {
     final db = await _db;
     await db.insert(
@@ -627,19 +650,84 @@ class Repository {
       'SELECT p.method AS method, COALESCE(SUM(p.amount_minor),0) AS total FROM payments p WHERE $where GROUP BY p.method',
       args,
     );
+    // Top items follow the selected period and never count cancelled
+    // orders. Each order's items are counted once even when the order
+    // has several payments.
+    var payFilter = "p.status='confirmed'";
+    final payArgs = <Object?>[];
+    if (fromIso != null) {
+      payFilter += ' AND p.paid_at >= ?';
+      payArgs.add(fromIso);
+    }
+    if (toIso != null) {
+      payFilter += ' AND p.paid_at <= ?';
+      payArgs.add(toIso);
+    }
     final top = await db.rawQuery('''
       SELECT oi.item_name AS name, SUM(oi.quantity) AS qty,
              SUM(oi.price_minor * oi.quantity) AS value
-      FROM order_items oi JOIN orders o ON o.id = oi.order_id
-      JOIN payments p ON p.order_id = o.id AND p.status='confirmed'
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id AND o.order_status != 'cancelled'
+      WHERE EXISTS (
+        SELECT 1 FROM payments p WHERE p.order_id = o.id AND $payFilter
+      )
       GROUP BY oi.item_name ORDER BY qty DESC LIMIT 5
-    ''');
+    ''', payArgs);
     return {
       'revenue': rev.first['revenue'] as int? ?? 0,
       'orders': rev.first['orders'] as int? ?? 0,
       'byMethod': byMethod,
       'top': top,
     };
+  }
+
+  /// Best sellers across non-cancelled orders, by quantity sold.
+  Future<List<Map<String, dynamic>>> popularItems({int limit = 5}) async {
+    final db = await _db;
+    return db.rawQuery(
+      '''
+      SELECT oi.menu_item_id AS menu_item_id, oi.item_name AS name,
+             SUM(oi.quantity) AS qty,
+             SUM(oi.price_minor * oi.quantity) AS value
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id AND o.order_status != 'cancelled'
+      GROUP BY oi.menu_item_id, oi.item_name
+      ORDER BY qty DESC LIMIT ?
+    ''',
+      [limit],
+    );
+  }
+
+  /// Full transaction rows for CSV export, newest first. Orders without
+  /// payments appear once with empty payment columns; orders with
+  /// several payments appear once per payment.
+  Future<List<Map<String, dynamic>>> transactionRows({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final db = await _db;
+    final fromIso = from?.toUtc().toIso8601String();
+    final toIso = to?.toUtc().toIso8601String();
+    var where = '1=1';
+    final args = <Object?>[];
+    if (fromIso != null) {
+      where += ' AND o.created_at >= ?';
+      args.add(fromIso);
+    }
+    if (toIso != null) {
+      where += ' AND o.created_at <= ?';
+      args.add(toIso);
+    }
+    return db.rawQuery('''
+      SELECT o.display_number AS display_number, o.created_at AS created_at,
+             o.order_type AS order_type, o.order_status AS order_status,
+             o.payment_status AS payment_status, o.total_minor AS total_minor,
+             p.method AS method, p.amount_minor AS amount_minor,
+             p.status AS pay_status, p.paid_at AS paid_at
+      FROM orders o LEFT JOIN payments p ON p.order_id = o.id
+      WHERE $where
+      ORDER BY o.created_at DESC
+    ''', args);
   }
 
   // ---- backup snapshot ----
