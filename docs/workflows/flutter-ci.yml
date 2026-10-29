@@ -1,0 +1,92 @@
+# Builds RanPOS with GitHub Actions on every push to main, on pull
+# requests, and on manual dispatch.
+#
+# Why this file lives in docs/workflows/:
+# The GitHub connector cannot write .github/workflows/ files, so the
+# owner creates .github/workflows/flutter-ci.yml in the GitHub web UI
+# by pasting this exact file. After that, Actions runs on push.
+#
+# After the workflow runs, download the APK from the run's Artifacts
+# section (ranpos-apk). The APK is debug-signed by Flutter's default
+# template config: fine for sideload testing, NOT for Play Store
+# release (that needs a real keystore, see README).
+name: Flutter CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Analyze, test, build APK + web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter 3.38.7
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.7"
+          channel: stable
+          cache: true
+
+      - name: Restore Flutter template binary assets
+        # The GitHub connector cannot push binary files, so template
+        # defaults (launcher icons, gradle-wrapper.jar, web icons) are
+        # not in the repository. Regenerate them from the installed
+        # Flutter template when they are missing; user assets are
+        # never overwritten because only missing files are copied.
+        run: |
+          if [ ! -f android/gradle/wrapper/gradle-wrapper.jar ] || [ ! -f android/app/src/main/res/mipmap-hdpi/ic_launcher.png ]; then
+            flutter create --template=app --org com.rafdevplay --project-name ranpos /tmp/ranpos-template >/dev/null
+            mkdir -p android/gradle/wrapper android/app/src/main/res web/icons
+            cp -n /tmp/ranpos-template/android/gradle/wrapper/gradle-wrapper.jar android/gradle/wrapper/ 2>/dev/null || true
+            for d in mipmap-hdpi mipmap-mdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+              mkdir -p "android/app/src/main/res/$d"
+              cp -n "/tmp/ranpos-template/android/app/src/main/res/$d/ic_launcher.png" "android/app/src/main/res/$d/" 2>/dev/null || true
+            done
+            cp -n /tmp/ranpos-template/web/favicon.png web/ 2>/dev/null || true
+            cp -n /tmp/ranpos-template/web/icons/*.png web/icons/ 2>/dev/null || true
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Format check
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test
+
+      - name: Build APK (release)
+        run: flutter build apk --release
+
+      - name: Build web (release)
+        run: flutter build web --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ranpos-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Upload web build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ranpos-web
+          path: build/web
+          if-no-files-found: error
