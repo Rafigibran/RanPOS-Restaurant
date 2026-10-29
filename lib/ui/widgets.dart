@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/l10n.dart';
 import '../core/money.dart';
 import 'theme.dart';
 
@@ -91,6 +92,80 @@ IconData orderStatusIcon(String s) {
       return Icons.cancel;
     default:
       return Icons.soup_kitchen;
+  }
+}
+
+String orderStatusKey(String s) {
+  switch (s) {
+    case 'in_progress':
+      return 'inProgress';
+    case 'ready':
+      return 'ready';
+    case 'completed':
+      return 'completed';
+    default:
+      return 'cancelled';
+  }
+}
+
+Color paymentStatusColor(String s) {
+  switch (s) {
+    case 'paid':
+      return RanTheme.green;
+    case 'refunded':
+      return Colors.red;
+    default:
+      return RanTheme.amber;
+  }
+}
+
+String paymentStatusKey(String s) {
+  switch (s) {
+    case 'paid':
+      return 'paid';
+    case 'partially_paid':
+      return 'partiallyPaid';
+    case 'refunded':
+      return 'refunded';
+    default:
+      return 'unpaid';
+  }
+}
+
+/// Shows the order status chip and the payment status chip together.
+/// A cancelled order always shows its cancelled status, never a payment
+/// status that would hide it.
+class OrderStatusChips extends StatelessWidget {
+  final String lang;
+  final Map<String, dynamic> order;
+  final WrapAlignment alignment;
+  const OrderStatusChips({
+    super.key,
+    required this.lang,
+    required this.order,
+    this.alignment = WrapAlignment.end,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final orderStatus = order['order_status'] as String? ?? 'in_progress';
+    final paymentStatus = order['payment_status'] as String? ?? 'unpaid';
+    return Wrap(
+      alignment: alignment,
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        StatusChip(
+          label: L.t(lang, orderStatusKey(orderStatus)),
+          color: orderStatusColor(orderStatus),
+          icon: orderStatusIcon(orderStatus),
+        ),
+        StatusChip(
+          label: L.t(lang, paymentStatusKey(paymentStatus)),
+          color: paymentStatusColor(paymentStatus),
+          icon: Icons.payment,
+        ),
+      ],
+    );
   }
 }
 

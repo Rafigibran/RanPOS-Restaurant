@@ -128,10 +128,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           final table = tables
               .where((t) => t['id'] == order['table_id'])
               .toList();
-          final paid = payments.fold<int>(
-            0,
-            (s, p) => s + (p['amount_minor'] as int),
-          );
+          final paid = payments
+              .where((p) => p['status'] == 'confirmed')
+              .fold<int>(0, (s, p) => s + (p['amount_minor'] as int));
           final remaining = (order['total_minor'] as int) - paid;
           final editable =
               order['order_status'] != 'completed' &&
@@ -185,15 +184,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                           ],
                         ),
                       ),
-                      StatusChip(
-                        label: order['payment_status'] == 'paid'
-                            ? tr('paid')
-                            : tr('unpaid'),
-                        color: order['payment_status'] == 'paid'
-                            ? RanTheme.green
-                            : RanTheme.amber,
-                        icon: Icons.payment,
-                      ),
+                      OrderStatusChips(lang: widget.lang, order: order),
                     ],
                   ),
                 ),
@@ -368,7 +359,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     ),
                   ),
                 const SizedBox(height: 12),
-                if (order['payment_status'] != 'paid' &&
+                if ((order['payment_status'] == 'unpaid' ||
+                        order['payment_status'] == 'partially_paid') &&
                     order['order_status'] != 'cancelled')
                   SizedBox(
                     width: double.infinity,
@@ -384,13 +376,57 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     width: double.infinity,
                     child: TextButton(
                       onPressed: () async {
-                        await repo.updateOrderStatus(
-                          widget.orderId,
-                          'cancelled',
-                          reason: 'cancelled_by_staff',
+                        final messenger = ScaffoldMessenger.of(context);
+                        final hasPaid = payments.any(
+                          (p) => p['status'] == 'confirmed',
                         );
-                        ref.read(refreshProvider.notifier).state++;
-                        setState(() {});
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: Text(tr('cancelled')),
+                            content: Text(
+                              hasPaid
+                                  ? tr('cancelPaidConfirm')
+                                  : '${tr('cancelled')}?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: Text(tr('cancel')),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                ),
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: Text(tr('cancelled')),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (ok != true) return;
+                        try {
+                          await repo.updateOrderStatus(
+                            widget.orderId,
+                            'cancelled',
+                            reason: 'cancelled_by_staff',
+                          );
+                          ref.read(refreshProvider.notifier).state++;
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                hasPaid
+                                    ? tr('paymentsRefunded')
+                                    : tr('cancelled'),
+                              ),
+                            ),
+                          );
+                          setState(() {});
+                        } catch (e) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(SnackBar(content: Text('$e')));
+                        }
                       },
                       child: Text(
                         tr('cancelled'),

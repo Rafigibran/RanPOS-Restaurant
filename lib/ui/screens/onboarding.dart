@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/l10n.dart';
+import '../../core/money.dart';
 import '../../state/app_state.dart';
 import '../theme.dart';
 import 'shell.dart';
@@ -18,7 +19,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   String _currency = 'USD';
   String _symbol = '\$';
   int _tax = 5;
-  bool _sample = true;
   bool _busy = false;
 
   String tr(String k) => L.t(widget.lang, k);
@@ -75,22 +75,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 key: ValueKey(_currency),
                 initialValue: _currency,
                 decoration: const InputDecoration(),
-                items: const [
-                  DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
-                  DropdownMenuItem(value: 'IDR', child: Text('IDR (Rp)')),
-                  DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
-                  DropdownMenuItem(value: 'JPY', child: Text('JPY (¥)')),
+                items: [
+                  for (final e in currencySymbols.entries)
+                    DropdownMenuItem(
+                      value: e.key,
+                      child: Text('${e.key} (${e.value})'),
+                    ),
                 ],
                 onChanged: (v) {
                   if (v == null) return;
                   setState(() {
                     _currency = v;
-                    _symbol = {
-                      'USD': '\$',
-                      'IDR': 'Rp',
-                      'EUR': '€',
-                      'JPY': '¥',
-                    }[v]!;
+                    _symbol = currencySymbols[v]!;
                   });
                 },
               ),
@@ -104,13 +100,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(hintText: '5'),
                 onChanged: (v) => _tax = int.tryParse(v) ?? 5,
-              ),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                value: _sample,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('sampleData')),
-                onChanged: (v) => setState(() => _sample = v ?? true),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -132,7 +121,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                             'address': '',
                             'phone': '',
                           });
-                          await repo.ensureSeeded(_sample);
+                          await repo.ensureSeeded();
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.setBool('ranpos_setup_done', true);
                           ref.read(refreshProvider.notifier).state++;

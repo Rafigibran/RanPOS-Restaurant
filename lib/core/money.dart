@@ -2,6 +2,27 @@
 // USD/EUR: cents. IDR/JPY: whole rupiah/yen (zero-decimal currencies).
 // No floating point is used for totals, so rounding is explicit.
 
+/// Currencies the user can pick, with their display symbols.
+/// Changing currency only changes how amounts are displayed; amounts are
+/// stored in the currency's minor unit, so the currency should be set
+/// before menu prices are entered.
+const Map<String, String> currencySymbols = {
+  'USD': '\$',
+  'IDR': 'Rp',
+  'EUR': '€',
+  'JPY': '¥',
+  'MYR': 'RM',
+  'SGD': 'S\$',
+  'GBP': '£',
+  'AUD': 'A\$',
+  'PHP': '₱',
+  'THB': '฿',
+  'VND': '₫',
+  'INR': '₹',
+  'KRW': '₩',
+  'CNY': '¥',
+};
+
 bool isZeroDecimal(String code) =>
     const {'IDR', 'JPY', 'KRW', 'VND'}.contains(code.toUpperCase());
 

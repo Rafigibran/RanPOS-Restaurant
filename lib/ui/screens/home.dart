@@ -50,7 +50,12 @@ class HomePage extends ConsumerWidget {
                 .where((o) => o['order_status'] == 'in_progress')
                 .length;
             final waiting = orders
-                .where((o) => o['payment_status'] == 'unpaid')
+                .where(
+                  (o) =>
+                      (o['payment_status'] == 'unpaid' ||
+                          o['payment_status'] == 'partially_paid') &&
+                      o['order_status'] != 'cancelled',
+                )
                 .length;
             final outStock = items
                 .where(
@@ -68,28 +73,28 @@ class HomePage extends ConsumerWidget {
                           (i['low_stock_threshold'] as int),
                 )
                 .toList();
-            // Popular: count quantities across order items is approximated
-            // here from seeded/current orders via a simple frequency map
-            // built from recent orders' totals is not available, so use
-            // the first active items as the popular row (real stock-aware).
             final popular = items
                 .where((i) => i['is_active'] == 1)
                 .take(5)
                 .toList();
             final revenue = report['revenue'] as int? ?? 0;
+            final cardW = (MediaQuery.of(context).size.width * 0.38).clamp(
+              132.0,
+              160.0,
+            );
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: 46,
+                        height: 46,
                         decoration: BoxDecoration(
                           color: RanTheme.accent,
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(23),
                         ),
                         child: const Icon(
                           Icons.store,
@@ -104,12 +109,17 @@ class HomePage extends ConsumerWidget {
                           children: [
                             Text(
                               name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
+                                fontSize: 16,
                               ),
                             ),
                             Text(
                               '${greeting()}, Admin',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: RanTheme.muted,
                                 fontSize: 13,
@@ -134,13 +144,18 @@ class HomePage extends ConsumerWidget {
                     style: const TextStyle(color: RanTheme.muted),
                   ),
                   const SizedBox(height: 4),
-                  MoneyText(
-                    revenue,
-                    code: code,
-                    symbol: symbol,
-                    style: const TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.w800,
+                  // Shrinks on narrow screens so long amounts never overflow.
+                  FittedBox(
+                    alignment: Alignment.centerLeft,
+                    fit: BoxFit.scaleDown,
+                    child: MoneyText(
+                      revenue,
+                      code: code,
+                      symbol: symbol,
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -164,9 +179,13 @@ class HomePage extends ConsumerWidget {
                                     color: RanTheme.amber,
                                   ),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    tr('inProgress'),
-                                    style: const TextStyle(fontSize: 12),
+                                  Expanded(
+                                    child: Text(
+                                      tr('inProgress'),
+                                      style: const TextStyle(fontSize: 12),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -174,7 +193,7 @@ class HomePage extends ConsumerWidget {
                               Text(
                                 '$inProgress',
                                 style: const TextStyle(
-                                  fontSize: 26,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
@@ -200,7 +219,7 @@ class HomePage extends ConsumerWidget {
                                     child: Text(
                                       tr('waitingPayment'),
                                       style: const TextStyle(fontSize: 12),
-                                      maxLines: 1,
+                                      maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -210,7 +229,7 @@ class HomePage extends ConsumerWidget {
                               Text(
                                 '$waiting',
                                 style: const TextStyle(
-                                  fontSize: 26,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
@@ -237,49 +256,56 @@ class HomePage extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  SizedBox(
-                    height: 150,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: popular.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, i) {
-                        final it = popular[i];
-                        return SizedBox(
-                          width: 140,
-                          child: RanCard(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                DishThumb(name: it['name'] as String),
-                                const Spacer(),
-                                Text(
-                                  it['name'] as String,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
+                  if (popular.isEmpty)
+                    EmptyState(title: tr('popularDishes'), hint: tr('empty'))
+                  else
+                    SizedBox(
+                      height: 152,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: popular.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (context, i) {
+                          final it = popular[i];
+                          return SizedBox(
+                            width: cardW,
+                            child: RanCard(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  DishThumb(name: it['name'] as String),
+                                  const Spacer(),
+                                  Text(
+                                    it['name'] as String,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                MoneyText(
-                                  it['price_minor'] as int,
-                                  code: code,
-                                  symbol: symbol,
-                                  style: const TextStyle(
-                                    color: RanTheme.accent,
-                                    fontWeight: FontWeight.w800,
+                                  const SizedBox(height: 4),
+                                  FittedBox(
+                                    alignment: Alignment.centerLeft,
+                                    fit: BoxFit.scaleDown,
+                                    child: MoneyText(
+                                      it['price_minor'] as int,
+                                      code: code,
+                                      symbol: symbol,
+                                      style: const TextStyle(
+                                        color: RanTheme.accent,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 24),
                   Text(
                     tr('outOfStock'),
@@ -360,6 +386,7 @@ class HomePage extends ConsumerWidget {
                                         .state++,
                                   ),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: Column(
@@ -368,6 +395,8 @@ class HomePage extends ConsumerWidget {
                                       children: [
                                         Text(
                                           o['display_number'] as String,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -385,20 +414,28 @@ class HomePage extends ConsumerWidget {
                                       ],
                                     ),
                                   ),
-                                  MoneyText(
-                                    o['total_minor'] as int,
-                                    code: code,
-                                    symbol: symbol,
-                                  ),
                                   const SizedBox(width: 8),
-                                  StatusChip(
-                                    label: o['payment_status'] == 'paid'
-                                        ? tr('paid')
-                                        : tr('unpaid'),
-                                    color: o['payment_status'] == 'paid'
-                                        ? RanTheme.green
-                                        : RanTheme.amber,
-                                    icon: Icons.payment,
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 140,
+                                        ),
+                                        child: FittedBox(
+                                          alignment: Alignment.centerRight,
+                                          fit: BoxFit.scaleDown,
+                                          child: MoneyText(
+                                            o['total_minor'] as int,
+                                            code: code,
+                                            symbol: symbol,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      OrderStatusChips(lang: lang, order: o),
+                                    ],
                                   ),
                                 ],
                               ),

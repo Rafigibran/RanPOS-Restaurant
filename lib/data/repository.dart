@@ -1,7 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../core/money.dart';
 import 'db.dart';
-import 'seed.dart';
 
 /// Repository over SQLite. UI never touches the database directly.
 /// Order creation, payment and cancellation are atomic: order + items +
@@ -35,25 +34,10 @@ class Repository {
     );
   }
 
-  Future<void> ensureSeeded(bool loadSample) async {
-    final db = await _db;
-    final cats = await db.query('menu_categories', limit: 1);
-    if (cats.isNotEmpty) return;
-    if (!loadSample) {
-      await db.insert('menu_categories', {
-        'id': newId(),
-        'name': 'Main Course',
-        'sort_order': 0,
-        'is_active': 1,
-      });
-      await db.insert('floors', {
-        'id': newId(),
-        'name': '1st Floor',
-        'sort_order': 0,
-      });
-      return;
-    }
-    await seedSampleData(db);
+  /// First-run setup. The app starts truly empty: no demo menu, no demo
+  /// floors, no demo orders. The user adds everything themselves.
+  Future<void> ensureSeeded() async {
+    // Intentionally a no-op: no sample data is ever created.
   }
 
   Future<void> clearAllData() async {
@@ -181,6 +165,34 @@ class Repository {
       t,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<void> deleteTable(String id) async {
+    final occupied = await occupiedTableIds();
+    if (occupied.contains(id)) {
+      throw Exception('Table is in use by an active order');
+    }
+    final db = await _db;
+    await db.delete('restaurant_tables', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> upsertFloor(Map<String, dynamic> f) async {
+    final db = await _db;
+    await db.insert('floors', f, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> deleteFloor(String id) async {
+    final db = await _db;
+    final count =
+        Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM restaurant_tables WHERE floor_id = ?',
+            [id],
+          ),
+        ) ??
+        0;
+    if (count > 0) throw Exception('Floor still has tables');
+    await db.delete('floors', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> adjustStock(
@@ -341,6 +353,10 @@ class Repository {
         order['order_status'] == 'cancelled') {
       throw Exception('Order can no longer be changed');
     }
+    final payStatus = order['payment_status'] as String;
+    if (payStatus == 'paid' || payStatus == 'refunded') {
+      throw Exception('Order is already settled and can no longer be changed');
+    }
     await db.transaction((txn) async {
       await txn.insert('order_items', {
         'id': newId(),
@@ -404,18 +420,37 @@ class Repository {
       taxPercent: taxPercent,
       taxInclusive: taxInclusive,
     );
+    // Recompute the payment status from confirmed payments only, so adding
+    // an item to a partially-paid order keeps the status truthful.
+    final paidRows = await txn.rawQuery(
+      "SELECT COALESCE(SUM(amount_minor),0) AS s FROM payments WHERE order_id = ? AND status='confirmed'",
+      [orderId],
+    );
+    final paid = (paidRows.first['s'] as int?) ?? 0;
+    final payStatus = paid >= t.total
+        ? 'paid'
+        : (paid > 0 ? 'partially_paid' : 'unpaid');
     await txn.update(
       'orders',
       {
         'subtotal_minor': t.subtotal,
         'tax_minor': t.tax,
         'total_minor': t.total,
+        'payment_status': payStatus,
         'updated_at': nowIso(),
       },
       where: 'id = ?',
       whereArgs: [orderId],
     );
   }
+
+  /// Allowed order-status transitions. Terminal states (completed,
+  /// cancelled) can never change again, which also prevents double
+  /// stock returns and double refunds.
+  static const Map<String, List<String>> _allowedTransitions = {
+    'in_progress': ['ready', 'cancelled'],
+    'ready': ['completed', 'cancelled'],
+  };
 
   Future<void> updateOrderStatus(
     String orderId,
@@ -425,30 +460,33 @@ class Repository {
     final db = await _db;
     final order = await orderById(orderId);
     if (order == null) return;
+    final current = order['order_status'] as String;
+    if (current == status) return;
+    final allowed = _allowedTransitions[current] ?? const [];
+    if (!allowed.contains(status)) {
+      throw Exception('Cannot change order status from $current to $status');
+    }
     await db.transaction((txn) async {
-      await txn.update(
-        'orders',
-        {
-          'order_status': status,
-          'updated_at': nowIso(),
-          if (reason != null) 'cancel_reason': reason,
-        },
-        where: 'id = ?',
-        whereArgs: [orderId],
-      );
-      if (status == 'ready') {
-        await txn.insert('in_app_notifications', {
-          'id': newId(),
-          'type': 'order_ready',
-          'title': 'Order ready',
-          'message': '${order['display_number']} is ready to serve.',
-          'related_id': orderId,
-          'read_at': null,
-          'created_at': nowIso(),
-        });
-      }
+      var paymentStatus = order['payment_status'] as String;
       if (status == 'cancelled') {
-        // Return stock for this order.
+        // Mark confirmed payments as refunded so revenue reports stay
+        // correct and the cancelled order can never be paid again.
+        final confirmed = await txn.query(
+          'payments',
+          where: "order_id = ? AND status='confirmed'",
+          whereArgs: [orderId],
+        );
+        if (confirmed.isNotEmpty) {
+          await txn.update(
+            'payments',
+            {'status': 'refunded'},
+            where: "order_id = ? AND status='confirmed'",
+            whereArgs: [orderId],
+          );
+          paymentStatus = 'refunded';
+        }
+        // Return stock for this order (runs exactly once: a cancelled
+        // order can never be cancelled again).
         final items = await txn.query(
           'order_items',
           where: 'order_id = ?',
@@ -480,6 +518,37 @@ class Repository {
             'created_at': nowIso(),
           });
         }
+        await txn.insert('in_app_notifications', {
+          'id': newId(),
+          'type': 'order_cancelled',
+          'title': 'Order cancelled',
+          'message': '${order['display_number']} was cancelled.',
+          'related_id': orderId,
+          'read_at': null,
+          'created_at': nowIso(),
+        });
+      }
+      await txn.update(
+        'orders',
+        {
+          'order_status': status,
+          'payment_status': paymentStatus,
+          'updated_at': nowIso(),
+          if (reason != null) 'cancel_reason': reason,
+        },
+        where: 'id = ?',
+        whereArgs: [orderId],
+      );
+      if (status == 'ready') {
+        await txn.insert('in_app_notifications', {
+          'id': newId(),
+          'type': 'order_ready',
+          'title': 'Order ready',
+          'message': '${order['display_number']} is ready to serve.',
+          'related_id': orderId,
+          'read_at': null,
+          'created_at': nowIso(),
+        });
       }
     });
   }
@@ -492,6 +561,12 @@ class Repository {
     final db = await _db;
     final order = await orderById(orderId);
     if (order == null) throw Exception('Order not found');
+    if (order['order_status'] == 'cancelled') {
+      throw Exception('Cannot pay a cancelled order');
+    }
+    if (order['payment_status'] == 'refunded') {
+      throw Exception('Payments for this order were refunded');
+    }
     await db.transaction((txn) async {
       await txn.insert('payments', {
         'id': newId(),

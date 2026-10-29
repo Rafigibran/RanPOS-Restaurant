@@ -12,8 +12,9 @@ from the reference is copied.
 
 ## What works in MVP
 
-- Onboarding and business setup (name, currency USD/IDR/EUR/JPY, tax %)
-  with an explicit sample-data toggle. No internet or cloud account needed.
+- Onboarding and business setup (name, currency, tax %). The app starts
+  completely empty: no demo menu, floors, tables or orders are ever
+  created. No internet or cloud account needed.
 - Dashboard: revenue from paid payments only, in-progress count,
   waiting-payment count, popular dishes, out-of-stock and low-stock,
   recent transactions.
@@ -23,7 +24,8 @@ from the reference is copied.
 - Create order: dine-in / takeaway, customer or walk-in, guests,
   available-table guard (one active order per table), menu with
   quantity steppers, subtotal / tax / total, atomic save.
-- Tables: 1st / 2nd / 3rd floor tabs, available / occupied legend.
+- Tables: floors and tables are added, edited and deleted by the user
+  from the Tables tab, with an available / occupied legend.
 - Menu and categories, customers, simple stock with movement history
   and return-to-stock on cancellation.
 - In-app notifications for order created, order ready and payment.

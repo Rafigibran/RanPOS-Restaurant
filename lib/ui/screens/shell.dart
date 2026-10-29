@@ -50,7 +50,7 @@ class _ShellPageState extends ConsumerState<ShellPage> {
     ];
     return Scaffold(
       appBar: _tab == 0 ? null : AppBar(title: Text(titles[_tab])),
-      body: pages[_tab],
+      body: _tab == 0 ? SafeArea(child: pages[_tab]) : pages[_tab],
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,

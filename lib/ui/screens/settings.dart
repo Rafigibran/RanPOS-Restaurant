@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/l10n.dart';
+import '../../core/money.dart';
 import '../../data/supabase_backup.dart';
 import '../../state/app_state.dart';
 import '../theme.dart';
@@ -19,6 +20,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   String _status = '';
+  String? _currencySel;
   String tr(String k) => L.t(widget.lang, k);
 
   Future<void> _localBackup() async {
@@ -101,19 +103,43 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               decoration: InputDecoration(labelText: tr('taxRate')),
             ),
             const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: ValueKey('cur_${biz?['currency_code']}'),
+              initialValue:
+                  _currencySel ?? (biz?['currency_code'] as String? ?? 'USD'),
+              decoration: InputDecoration(labelText: tr('currency')),
+              items: [
+                for (final e in currencySymbols.entries)
+                  DropdownMenuItem(
+                    value: e.key,
+                    child: Text('${e.key} (${e.value})'),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _currencySel = v),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              tr('currencyNote'),
+              style: const TextStyle(color: RanTheme.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
+                  final code =
+                      _currencySel ??
+                      (biz?['currency_code'] as String? ?? 'USD');
                   await ref.read(repoProvider).saveBusiness({
                     'name': nameCtrl.text.trim(),
-                    'currency_code': biz?['currency_code'] ?? 'USD',
-                    'currency_symbol': biz?['currency_symbol'] ?? '\$',
+                    'currency_code': code,
+                    'currency_symbol': currencySymbols[code] ?? code,
                     'tax_percent': int.tryParse(taxCtrl.text) ?? 5,
                     'tax_inclusive': false,
                     'address': biz?['address'] ?? '',
                     'phone': biz?['phone'] ?? '',
                   });
+                  setState(() => _currencySel = null);
                   ref.read(refreshProvider.notifier).state++;
                   if (context.mounted) {
                     ScaffoldMessenger.of(
@@ -211,10 +237,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   final ok = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Clear sample data'),
-                      content: const Text(
-                        'This deletes menus, customers, tables, orders and notifications. Business settings are kept.',
-                      ),
+                      title: Text(tr('clearData')),
+                      content: Text(tr('clearDataConfirm')),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, false),
@@ -232,7 +256,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ref.read(refreshProvider.notifier).state++;
                   }
                 },
-                child: Text('Clear all data'),
+                child: Text(tr('clearData')),
               ),
             ),
             const SizedBox(height: 12),

@@ -23,7 +23,10 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       return false;
     }
     if (_filter == 'ready' && o['order_status'] != 'ready') return false;
-    if (_filter == 'waiting' && o['payment_status'] != 'unpaid') {
+    if (_filter == 'waiting' &&
+        !((o['payment_status'] == 'unpaid' ||
+                o['payment_status'] == 'partially_paid') &&
+            o['order_status'] != 'cancelled')) {
       return false;
     }
     if (_filter == 'completed' && o['order_status'] != 'completed') {
