@@ -26,6 +26,47 @@ class HomePage extends ConsumerWidget {
     return tr('greetingEvening');
   }
 
+  /// Stat card with a fixed-height label area: long labels may wrap to two
+  /// lines, but the number below always stays aligned across cards.
+  Widget _statCard({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: RanCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 34,
+              child: Row(
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontSize: 12),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(repoProvider);
@@ -166,76 +207,18 @@ class HomePage extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Expanded(
-                        child: RanCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.soup_kitchen,
-                                    size: 16,
-                                    color: RanTheme.amber,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      tr('inProgress'),
-                                      style: const TextStyle(fontSize: 12),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '$inProgress',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      _statCard(
+                        icon: Icons.soup_kitchen,
+                        color: RanTheme.amber,
+                        label: tr('inProgress'),
+                        value: '$inProgress',
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: RanCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.hourglass_bottom,
-                                    size: 16,
-                                    color: RanTheme.blue,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      tr('waitingPayment'),
-                                      style: const TextStyle(fontSize: 12),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '$waiting',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      _statCard(
+                        icon: Icons.hourglass_bottom,
+                        color: RanTheme.blue,
+                        label: tr('waitingPayment'),
+                        value: '$waiting',
                       ),
                     ],
                   ),

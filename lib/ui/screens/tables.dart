@@ -344,7 +344,7 @@ class _TablesPageState extends ConsumerState<TablesPage> {
                                 crossAxisCount: count,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 12,
-                                childAspectRatio: 0.95,
+                                childAspectRatio: 0.78,
                               ),
                           itemCount: shown.length,
                           itemBuilder: (context, i) {
@@ -352,18 +352,19 @@ class _TablesPageState extends ConsumerState<TablesPage> {
                             final occ = occupied.contains(t['id']);
                             return RanCard(
                               onTap: () => _tableOptions(t, floors, occ),
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(10),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
                                     Icons.table_restaurant,
                                     color: occ
                                         ? RanTheme.accent
                                         : RanTheme.blue,
-                                    size: 30,
+                                    size: 26,
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 6),
                                   Text(
                                     t['label'] as String,
                                     maxLines: 1,
@@ -385,6 +386,8 @@ class _TablesPageState extends ConsumerState<TablesPage> {
                                   ),
                                   Text(
                                     '${t['capacity']} ${tr('guest')}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: RanTheme.muted,
