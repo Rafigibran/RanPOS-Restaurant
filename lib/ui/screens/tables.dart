@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/l10n.dart';
+import '../../core/money.dart';
 import '../../data/db.dart';
 import '../../state/app_state.dart';
 import '../theme.dart';
@@ -161,11 +162,12 @@ class _TablesPageState extends ConsumerState<TablesPage> {
     if (ok != true || floorId == null) return;
     final label = labelCtrl.text.trim();
     if (label.isEmpty) return;
+    final cap = parseIntInput(capCtrl.text);
     try {
       await ref.read(repoProvider).upsertTable({
         'id': table?['id'] ?? newId(),
         'label': label,
-        'capacity': int.tryParse(capCtrl.text) ?? 4,
+        'capacity': cap > 0 ? cap : 4,
         'floor_id': floorId,
         'is_active': 1,
       });

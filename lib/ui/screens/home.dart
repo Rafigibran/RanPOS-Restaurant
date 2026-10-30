@@ -384,15 +384,13 @@ class HomePage extends ConsumerWidget {
                                         .read(refreshProvider.notifier)
                                         .state++,
                                   ),
-                              child: Row(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
                                           o['display_number'] as String,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -400,24 +398,8 @@ class HomePage extends ConsumerWidget {
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
-                                        Text(
-                                          (o['order_type'] as String) ==
-                                                  'dine_in'
-                                              ? tr('dineIn')
-                                              : tr('takeaway'),
-                                          style: const TextStyle(
-                                            color: RanTheme.muted,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
+                                      ),
+                                      const SizedBox(width: 8),
                                       ConstrainedBox(
                                         constraints: const BoxConstraints(
                                           maxWidth: 140,
@@ -432,9 +414,23 @@ class HomePage extends ConsumerWidget {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
-                                      OrderStatusChips(lang: lang, order: o),
                                     ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    (o['order_type'] as String) == 'dine_in'
+                                        ? tr('dineIn')
+                                        : tr('takeaway'),
+                                    style: const TextStyle(
+                                      color: RanTheme.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  OrderStatusChips(
+                                    lang: lang,
+                                    order: o,
+                                    alignment: WrapAlignment.start,
                                   ),
                                 ],
                               ),

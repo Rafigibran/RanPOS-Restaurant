@@ -183,8 +183,15 @@ class _MenuPageState extends ConsumerState<MenuPage> {
       ),
     );
     if (ok != true || nameCtrl.text.trim().isEmpty) return;
-    final parsed = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? 0;
+    final parsed = parseAmountInput(priceCtrl.text);
     final minor = zero ? parsed.round() : (parsed * 100).round();
+    if (minor < 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('invalidAmount'))));
+      return;
+    }
     await repo.upsertMenuItem({
       'id': existing?['id'] ?? newId(),
       'category_id': categoryId,
@@ -194,7 +201,7 @@ class _MenuPageState extends ConsumerState<MenuPage> {
       'sku': existing?['sku'],
       'is_active': 1,
       'stock_tracking': trackStock ? 1 : 0,
-      'stock_quantity': trackStock ? (int.tryParse(stockCtrl.text) ?? 0) : 0,
+      'stock_quantity': trackStock ? parseIntInput(stockCtrl.text) : 0,
       'low_stock_threshold': existing?['low_stock_threshold'] ?? 5,
       'created_at': existing?['created_at'] ?? nowIso(),
       'updated_at': nowIso(),

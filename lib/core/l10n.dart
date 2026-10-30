@@ -1004,5 +1004,13 @@ class L {
       'es': 'Método de pago',
       'ar': 'طريقة الدفع',
     },
+    'invalidAmount': {
+      'id': 'Nominal tidak valid',
+      'en': 'Invalid amount',
+      'ja': '金額が無効です',
+      'zh': '金额无效',
+      'es': 'Importe no válido',
+      'ar': 'المبلغ غير صالح',
+    },
   };
 }

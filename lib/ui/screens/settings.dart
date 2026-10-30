@@ -134,7 +134,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     'name': nameCtrl.text.trim(),
                     'currency_code': code,
                     'currency_symbol': currencySymbols[code] ?? code,
-                    'tax_percent': int.tryParse(taxCtrl.text) ?? 5,
+                    'tax_percent': parseIntInput(taxCtrl.text),
                     'tax_inclusive': false,
                     'address': biz?['address'] ?? '',
                     'phone': biz?['phone'] ?? '',

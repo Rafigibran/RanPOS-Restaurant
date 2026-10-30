@@ -99,7 +99,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               TextField(
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(hintText: '5'),
-                onChanged: (v) => _tax = int.tryParse(v) ?? 5,
+                onChanged: (v) =>
+                    _tax = v.trim().isEmpty ? 5 : parseIntInput(v),
               ),
               const SizedBox(height: 24),
               SizedBox(

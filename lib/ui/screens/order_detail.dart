@@ -25,6 +25,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     String symbol,
   ) async {
     var method = 'cash';
+    final messenger = ScaffoldMessenger.of(context);
     final amountCtrl = TextEditingController(
       text: ((order['total_minor'] as int) / (isZeroDecimal(code) ? 1 : 100))
           .toString(),
@@ -71,8 +72,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       ),
     );
     if (ok != true) return;
-    final parsed = double.tryParse(amountCtrl.text.replaceAll(',', '.')) ?? 0;
+    final parsed = parseAmountInput(amountCtrl.text);
     final minor = isZeroDecimal(code) ? parsed.round() : (parsed * 100).round();
+    if (minor <= 0) {
+      messenger.showSnackBar(SnackBar(content: Text(tr('invalidAmount'))));
+      return;
+    }
     try {
       await ref.read(repoProvider).recordPayment(widget.orderId, method, minor);
       if (!mounted) return;
@@ -80,7 +85,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         paid: minor,
         total: order['total_minor'] as int,
       );
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             change > 0
@@ -93,7 +98,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      messenger.showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -164,55 +169,68 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               order['order_status'] != 'completed' &&
               order['order_status'] != 'cancelled';
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 RanCard(
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFE8E0),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: Text(
-                            table.isEmpty
-                                ? 'T'
-                                : table.first['label'] as String,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: RanTheme.accent,
+                      Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFE8E0),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Center(
+                              child: Text(
+                                table.isEmpty
+                                    ? 'T'
+                                    : table.first['label'] as String,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: RanTheme.accent,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
                               order['display_number'] as String,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 16,
                               ),
                             ),
-                            Text(
-                              '${(order['order_type'] as String) == 'dine_in' ? tr('dineIn') : tr('takeaway')} · ${order['guest_count']} ${tr('guest')}',
-                              style: const TextStyle(
-                                color: RanTheme.muted,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 60),
+                        child: Text(
+                          '${(order['order_type'] as String) == 'dine_in' ? tr('dineIn') : tr('takeaway')} · ${order['guest_count']} ${tr('guest')}',
+                          style: const TextStyle(
+                            color: RanTheme.muted,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                      OrderStatusChips(lang: widget.lang, order: order),
+                      const SizedBox(height: 10),
+                      OrderStatusChips(
+                        lang: widget.lang,
+                        order: order,
+                        alignment: WrapAlignment.start,
+                      ),
                     ],
                   ),
                 ),

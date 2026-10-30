@@ -67,4 +67,29 @@ void main() {
       isTrue,
     );
   });
+
+  test('parseAmountInput handles Indonesian and US styles', () {
+    expect(parseAmountInput('12.000'), 12000);
+    expect(parseAmountInput('1.250.000'), 1250000);
+    expect(parseAmountInput('12.000,50'), 12000.5);
+    expect(parseAmountInput('12,5'), 12.5);
+    expect(parseAmountInput('12,000.50'), 12000.5);
+    expect(parseAmountInput('12.5'), 12.5);
+    expect(parseAmountInput('12000'), 12000);
+    expect(parseAmountInput(' 12.000 '), 12000);
+    expect(parseAmountInput(''), 0);
+    expect(parseAmountInput('abc'), 0);
+  });
+
+  test('parseIntInput strips thousand separators', () {
+    expect(parseIntInput('1.000'), 1000);
+    expect(parseIntInput('4'), 4);
+    expect(parseIntInput(''), 0);
+  });
+
+  test('invalidAmount key exists in all languages', () {
+    for (final lang in ['id', 'en', 'ja', 'zh', 'es', 'ar']) {
+      expect(L.t(lang, 'invalidAmount'), isNot('invalidAmount'));
+    }
+  });
 }

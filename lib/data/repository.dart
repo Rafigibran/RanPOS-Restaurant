@@ -296,12 +296,31 @@ class Repository {
       taxInclusive: taxInclusive,
     );
     final orderId = newId();
-    final count =
-        Sqflite.firstIntValue(
-          await db.rawQuery('SELECT COUNT(*) FROM orders'),
-        ) ??
-        0;
-    final display = orderDisplayNumber(DateTime.now(), count + 1);
+    // Sequence per day from the highest existing number, so order numbers
+    // are never reused even after data is cleared.
+    final now = DateTime.now();
+    final y = now.year.toString();
+    final mo = now.month.toString().padLeft(2, '0');
+    final da = now.day.toString().padLeft(2, '0');
+    final prefix = 'RAN-$y$mo$da-';
+    final last = await db.query(
+      'orders',
+      columns: ['display_number'],
+      where: 'display_number LIKE ?',
+      whereArgs: ['$prefix%'],
+      orderBy: 'display_number DESC',
+      limit: 1,
+    );
+    var seq = 1;
+    if (last.isNotEmpty) {
+      seq =
+          (int.tryParse(
+                (last.first['display_number'] as String).split('-').last,
+              ) ??
+              0) +
+          1;
+    }
+    final display = orderDisplayNumber(now, seq);
     await db.transaction((txn) async {
       await txn.insert('orders', {
         'id': orderId,
